@@ -81,23 +81,11 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
 
       float x = rho * cos(phi);
       float y = rho * sin(phi);
-      //float vx = rho_dot * cos(phi);
-      //float vy = rho_dot * sin(phi);
-
-      if (fabs(x) < .0001)
-      {
-        x = 1;
-        ekf_.P_(0, 0) = 1000;
-      }
-
-      if (fabs(y) < .0001)
-      {
-        y = 1;
-        ekf_.P_(1, 1) = 1000;
-      }
+      float vx = rho_dot * cos(phi);
+      float vy = rho_dot * sin(phi);
 
       //Initialize state
-      ekf_.x_ << x, y, 0, 0;
+      ekf_.x_ << x, y, vx, vy;
       ekf_.R_ = R_radar_;
     }
     else if (measurement_pack.sensor_type_ == MeasurementPackage::LASER) {
@@ -139,10 +127,7 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
         dt_3/2*noise_ax, 0, dt_2*noise_ax, 0,
         0, dt_3/2*noise_ay, 0, dt_2*noise_ay;
 
-  if (dt > 0.001)
-  {
-    ekf_.Predict();
-  }
+  ekf_.Predict();
 
   /*****************************************************************************
    *  Update
@@ -150,15 +135,14 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
 
   if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
     // Radar updates
-    try
+    if (fabs(ekf_.x_[0]) != 0 && fabs(ekf_.x_[1]) != 0 )
     {
-      Hj_ = tools.CalculateJacobian(ekf_.x_);
-      ekf_.H_ = Hj_;
-      ekf_.R_ = R_radar_;
-      ekf_.UpdateEKF(measurement_pack.raw_measurements_);
-    } catch(...){
-      return; // Jacobian error
+    Hj_ = tools.CalculateJacobian(ekf_.x_);
+    ekf_.H_ = Hj_;
+    ekf_.R_ = R_radar_;
+    ekf_.UpdateEKF(measurement_pack.raw_measurements_);
     }
+    
   } else {
     // Laser updates
     ekf_.H_ = H_laser_;
